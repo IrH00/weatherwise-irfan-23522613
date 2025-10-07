@@ -1,5 +1,6 @@
 import sys
 import requests
+API_KEY = "e6a2841079bca486e90d927f5357fc35"
 
 def geocode(name: str):
     """Return the first geocoding match (name, country. lat. lon) or None."""
@@ -20,18 +21,18 @@ def geocode(name: str):
     }
     
 def get_current_weather(lat: float, lon: float):
-    """Fetch weather data from Open-Meteo's newer API structure."""
-    url = "https://api.open-meteo.com/v1/forecast"
+    """Use OpenWeatherMap Current Weather API to get reliable temperature, wind, and condition data."""
+    url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
-        "latitude": lat,
-        "longitude": lon,
-        "current": "temperature_2m,wind_speed_10m,weathercode",
-        "timezone": "auto",
+        "lat": lat,
+        "lon": lon,
+        "appid": API_KEY,
+        "units": "metric",
     }
     r = requests.get(url, params=params, timeout=10)
     r.raise_for_status()
     data = r.json()
-    return data.get("current", {})
+    return data
 
 WEATHER_CODE = {
     0: "Clear sky",
@@ -71,43 +72,48 @@ def code_text(code):
         return str(code)
     
 def main():
-    city = " ".join(sys.argv[1:]).strip() if len(sys.argv) > 1 else ""
-    if not city:
-        city = input("Enter city name (e.g., Perth or Sydney): ").strip()
-        
-    if not city:
-        print("No city name provided, exiting.")
-        return
+    print("\n=== Weather Friend ===")
+    print("Type a city name (e.g., Perth or Sydney)")
+    print("Type 'q' or 'exit' to quit.\n")
     
-    try:
-        place = geocode(city)
-        if not place:
-            print(f"No results for '{city}'. Try another name.")
-            return
+    while True:
+        city = input("Enter City: ").strip()
+        if city.lower() in {"q", "quit", "exit"}:
+            print("Goodbye! Stay Weather-Wise ;)")
+            break
         
-        wx = get_current_weather(place["lat"], place["lon"])
-        print(wx)
-        if not wx:
-            print("Could not get weather data. Try again later.")
-            return
+        try:
+            place = geocode(city)
+            if not place:
+                print(f"No results for '{city}'. Try another name.\n")
+                continue
+            
+            wx = get_current_weather(place["lat"], place["lon"])
+            if not wx:
+                print("Could not get weather data. Try again later.\n")
+                continue
+            
+            temp = wx["main"]["temp"]
+            wind = wx["wind"]["speed"]
+            desc = wx["weather"][0]["description"].title()
+            time = wx.get("dt")
         
-        desc = code_text(wx.get("weathercode"))
-        temp = wx.get("temperature_2m")
-        wind = wx.get("windspeed_10m") or wx.get("wind_speed") or "N/A"
-        time = wx.get("time")
-        
-        print("\n=== Weather Friend (Terminal) ===")
-        print(f"Location: {place['name']}, {place['country']} ({place['lat']:.2f}, {place['lon']:.2f})")
-        print(f"Time: {time}")
-        print(f"Now: {temp}°C, wind {wind} km/h, {desc}")
-        print("=================================\n")
-        
-    except requests.HTTPError as e:
-        print(f"HTTP error: {e}")
-    except requests.RequestException as e:
-        print(f"Network error: {e}")
-    except Exception as e:
-        print(f"An error occurred: {e}") 
+            from datetime import datetime
+            time = datetime.fromtimestamp(time).strftime('%Y-%m-%d %H:%M UTC') if time else "Unknown time"
+            
+            print("\n----------------------")
+            print(f"Location: {place['name']}, {place['country']} ({place['lat']:.2f}, {place['lon']:.2f})")
+            print(f"Time: {time}")
+            print(f"Now: {temp}°C, wind {wind} km/h, {desc}")
+            print("------------------------\n")
+            
+        except requests.HTTPError as e:
+            print(f"HTTP error: {e}")
+        except requests.RequestException as e:
+            print(f"Network error: {e}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+    
         
 if __name__ == "__main__":
     main()  
