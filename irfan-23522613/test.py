@@ -1,7 +1,18 @@
+#------Imports-------
 import sys
 import requests
+from rich.console import Console
+from rich.table import Table
+from rich.prompt import Prompt
+from rich.panel import Panel
+from rich import box
+from datetime import datetime
+
+#------API setup------
 API_KEY = "e6a2841079bca486e90d927f5357fc35"
 
+#------Geocode--------
+#helps to convert user input (e.g. Perth) to numerical value for API to read
 def geocode(name: str):
     """Return the first geocoding match (name, country. lat. lon) or None."""
     url = "https://geocoding-api.open-meteo.com/v1/search"
@@ -19,7 +30,8 @@ def geocode(name: str):
         "lat": c["latitude"],
         "lon": c["longitude"],
     }
-    
+
+#-------Weather-------    
 def get_current_weather(lat: float, lon: float):
     """Use OpenWeatherMap Current Weather API to get reliable temperature, wind, and condition data."""
     url = "https://api.openweathermap.org/data/2.5/weather"
@@ -29,10 +41,17 @@ def get_current_weather(lat: float, lon: float):
         "appid": API_KEY,
         "units": "metric",
     }
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    return data
+    try:
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        return data
+    except requests.exceptions.Timeout:
+        print("Network timeout. Check your connection.")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching weather data: {e}")
+        return None
 
 WEATHER_CODE = {
     0: "Clear sky",
@@ -70,7 +89,9 @@ def code_text(code):
         return WEATHER_CODE.get(int(code), f"Code {code}")
     except Exception:
         return str(code)
-    
+
+
+#-------Main interactive loop------    
 def main():
     print("\n=== Weather Friend ===")
     print("Type a city name (e.g., Perth or Sydney)")
@@ -85,7 +106,7 @@ def main():
         try:
             place = geocode(city)
             if not place:
-                print(f"No results for '{city}'. Try another name.\n")
+                print(f"No results for '{city}'. Check spelling or try another name.\n")
                 continue
             
             wx = get_current_weather(place["lat"], place["lon"])
@@ -114,6 +135,6 @@ def main():
         except Exception as e:
             print(f"An error occurred: {e}")
     
-        
+#------Run program------        
 if __name__ == "__main__":
     main()  
