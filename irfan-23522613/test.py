@@ -6,135 +6,223 @@ from rich.table import Table
 from rich.prompt import Prompt
 from rich.panel import Panel
 from rich import box
+import time
 from datetime import datetime
+from halo import Halo
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")  # use headless backend for VSCode Web / Jupyter
+import matplotlib.pyplot as plt
+from IPython.display import display
+import pyinputplus as pyip
+
 
 #------API setup------
+console = Console()
 API_KEY = "e6a2841079bca486e90d927f5357fc35"
 
 #------Geocode--------
-#helps to convert user input (e.g. Perth) to numerical value for API to read
 def geocode(name: str):
-    """Return the first geocoding match (name, country. lat. lon) or None."""
-    url = "https://geocoding-api.open-meteo.com/v1/search"
-    params = {"name": name, "count": 1, "language": "en", "format": "json"}
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    results = data.get("results") or []
-    if not results:
-        return None
-    c = results[0]
-    return {
-        "name": c["name"],
-        "country": c["country"],
-        "lat": c["latitude"],
-        "lon": c["longitude"],
-    }
-
-#-------Weather-------    
-def get_current_weather(lat: float, lon: float):
-    """Use OpenWeatherMap Current Weather API to get reliable temperature, wind, and condition data."""
-    url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "appid": API_KEY,
-        "units": "metric",
-    }
+    """Convert city name to coordinates using OpenWeatherMap's direct geocoding API."""
+    url = "http://api.openweathermap.org/geo/1.0/direct"
+    params = {"q": name, "limit": 1, "appid": API_KEY}
     try:
         r = requests.get(url, params=params, timeout=10)
         r.raise_for_status()
         data = r.json()
-        return data
+        if not data:
+            return None
+        c = data[0]
+        return {
+            "name": c["name"],
+            "country": c.get("country", "Unknown"),
+            "lat": c["lat"],
+            "lon": c["lon"],
+        }
     except requests.exceptions.Timeout:
-        print("Network timeout. Check your connection.")
+        console.print("[yellow]⏳ City lookup timed out.[/yellow]")
         return None
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching weather data: {e}")
+    except Exception as e:
+        console.print(f"[red]Geocoding error: {e}[/red]")
         return None
 
-WEATHER_CODE = {
-    0: "Clear sky",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Fog",
-    48: "Depositing rime fog",
-    51: "Light drizzle",
-    53: "Moderate drizzle",
-    55: "Dense intensity drizzle",
-    56: "Light freezing drizzle",
-    57: "Dense intensity freezing drizzle",
-    61: "Slight rain",
-    63: "Moderate rain",
-    65: "Heavy intensity rain",
-    66: "Light freezing rain",
-    67: "Heavy intensity freezing rain",
-    71: "Slight snow fall",
-    73: "Moderate snow fall",
-    75: "Heavy intensity snow fall",
-    77: "Snow grains",
-    80: "Slight rain showers",
-    81: "Moderate rain showers",
-    82: "Violent rain showers",
-    85: "Slight snow showers",
-    86: "Heavy snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm with slight hail",
-    99: "Thunderstorm with heavy hail",
-}
-
-def code_text(code):
+#-------Current Weather-------
+def get_current_weather(lat: float, lon: float):
+    """Fetch live current weather conditions."""
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
     try:
-        return WEATHER_CODE.get(int(code), f"Code {code}")
-    except Exception:
-        return str(code)
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        time_str = datetime.fromtimestamp(data["dt"]).strftime("%Y-%m-%d %H:%M")
+        return {
+            "temp": data["main"]["temp"],
+            "wind": data["wind"]["speed"],
+            "desc": data["weather"][0]["description"].title(),
+            "time": time_str
+        }
+    except Exception as e:
+        console.print(f"[red]Weather fetch error: {e}[/red]")
+        return None
 
+#-------Get Forecast-------
+def get_forecast(lat: float, lon: float):
+    """Fetch 5-day / 3-hour forecast from OpenWeatherMap."""
+    url = "https://api.openweathermap.org/data/2.5/forecast"
+    params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        r.raise_for_status()
+        data = r.json()
+        forecast_list = data["list"]
 
-#-------Main interactive loop------    
-def main():
-    print("\n=== Weather Friend ===")
-    print("Type a city name (e.g., Perth or Sydney)")
-    print("Type 'q' or 'exit' to quit.\n")
+        # Build DataFrame
+        df = pd.DataFrame([
+            {
+                "time": item["dt_txt"],
+                "temp": item["main"]["temp"],
+                "humidity": item["main"]["humidity"],
+                "wind": item["wind"]["speed"],
+            }
+            for item in forecast_list
+        ])
+        df["time"] = pd.to_datetime(df["time"], format="%Y-%m-%d %H:%M:%S", errors="coerce")
+        return df
+
+    except Exception as e:
+        console.print(f"[red]Forecast error: {e}[/red]")
+        return None
+
+#-------Forecast-------
+def plot_forecast(df, city_name):
+    """Show temperature and humidity forecast using Matplotlib GUI window and save image."""
+    df = df.copy()
+    df["time_str"] = df["time"].dt.strftime("%d/%m %H:%M")
+
+    # Style and figure
+    plt.style.use("seaborn-v0_8-darkgrid")
+    plt.figure(figsize=(10, 5))
+    plt.plot(df["time_str"], df["temp"], label="Temperature (°C)", linewidth=2, color="red")
+    plt.plot(df["time_str"], df["humidity"], label="Humidity (%)", linewidth=2, color="blue")
+
+    plt.title(f"5-Day Forecast for {city_name}")
+    plt.xlabel("Time")
+    plt.ylabel("Value")
+    plt.xticks(rotation=45, fontsize=8)
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.legend()
+    plt.tight_layout()
+    display(plt.gcf())
+    plt.close()
     
+#-------Custom Menu-------
+def menu_input(options):
+    """Custom menu input without duplicate prints."""
+    valid_choices = {str(i+1): opt for i, opt in enumerate(options)}
     while True:
-        city = input("Enter City: ").strip()
-        if city.lower() in {"q", "quit", "exit"}:
-            print("Goodbye! Stay Weather-Wise ;)")
+        choice = input("\nEnter choice [1-4]: ").strip()
+        if choice in valid_choices:
+            return valid_choices[choice]
+        console.print("[red]Invalid choice! Please enter 1–4.[/red]")
+
+#-------Main Menu-------
+def main():
+    console.print(Panel.fit("🌦️ [bold cyan]Weather Friend[/bold cyan] 🌦️", box=box.DOUBLE))
+    console.print("[green]Welcome to your smart weather assistant![/green]\n")
+
+    while True:
+        console.print(Panel.fit(
+            "[bold white]1.[/bold white] Current Weather\n"
+            "[bold white]2.[/bold white] 5-Day Forecast\n"
+            "[bold white]3.[/bold white] Help\n"
+            "[bold white]4.[/bold white] Exit",
+            title="[cyan]Main Menu[/cyan]",
+            box=box.ROUNDED,
+        ))
+
+        choice = menu_input(["Current Weather", "5-Day Forecast", "Help", "Exit"])
+
+        # ---------- Option 1: Current Weather ----------
+        if choice == "Current Weather":
+            city = Prompt.ask("[bold white]Enter city[/bold white]")
+            spinner = Halo(text=f"Fetching current weather for {city}...", spinner="dots")
+            spinner.start()
+            try:
+                place = geocode(city)
+                if not place:
+                    spinner.stop()
+                    console.print(f"[red]❌ City '{city}' not found. Try again.[/red]\n")
+                    continue
+                wx = get_current_weather(place["lat"], place["lon"])
+                spinner.stop()
+                if not wx:
+                    console.print("[red]⚠️ Could not get weather data.[/red]\n")
+                    continue
+
+                table = Table(title=f"{place['name']}, {place['country']}", box=box.ROUNDED)
+                table.add_column("Attribute", style="cyan", no_wrap=True)
+                table.add_column("Value", style="bold white")
+                table.add_row("Time", wx["time"])
+                table.add_row("Temperature", f"{wx['temp']}°C")
+                table.add_row("Wind", f"{wx['wind']} m/s")
+                table.add_row("Condition", wx["desc"])
+                console.print(table)
+                console.print()
+            except Exception as e:
+                spinner.stop()
+                console.print(f"[red]Error:[/red] {e}")
+
+        # ---------- Option 2: 5-Day Forecast ----------
+        elif choice == "5-Day Forecast":
+            city = Prompt.ask("[bold white]Enter city[/bold white]")
+            spinner = Halo(text=f"Fetching 5-day forecast for {city}...", spinner="dots")
+            spinner.start()
+            try:
+                place = geocode(city)
+                spinner.stop()
+
+                if not place:
+                    console.print(f"[red]❌ City '{city}' not found. Try again.[/red]\n")
+                    continue
+
+                df = get_forecast(place["lat"], place["lon"])
+                if df is None or df.empty:
+                    console.print("[yellow]⚠️ No forecast data available.[/yellow]\n")
+                    continue
+
+                try:
+                    plot_forecast(df, place["name"])
+                except Exception as e:
+                    console.print(f"[red]Plot error:[/red] {e}\n")
+
+            except requests.Timeout:
+                spinner.stop()
+                console.print("[red]⏳ Forecast request timed out. Try again.[/red]")
+            except requests.RequestException as e:
+                spinner.stop()
+                console.print(f"[red]Network error while fetching forecast:[/red] {e}")
+            except Exception as e:
+                spinner.stop()
+                console.print(f"[red]Unexpected error:[/red] {e}")
+
+        # ---------- Option 3: Help ----------
+        elif choice == "Help":
+            console.print(Panel.fit(
+                "[cyan]Usage Tips[/cyan]\n"
+                "• Enter a valid city name to fetch live weather data.\n"
+                "• Forecast graphs display temperature and humidity trends.\n"
+                "• Use [yellow]Ctrl + C[/yellow] anytime to quit safely.\n\n"
+                "[green]Data Source:[/green] OpenWeatherMap API",
+                title="[bold white]Help Menu[/bold white]",
+                box=box.ROUNDED
+            ))
+
+        # ---------- Option 4: Exit ----------
+        elif choice == "Exit":
+            console.print("\n[bold green]Goodbye! Stay weather-wise ☀️[/bold green]\n")
             break
-        
-        try:
-            place = geocode(city)
-            if not place:
-                print(f"No results for '{city}'. Check spelling or try another name.\n")
-                continue
-            
-            wx = get_current_weather(place["lat"], place["lon"])
-            if not wx:
-                print("Could not get weather data. Try again later.\n")
-                continue
-            
-            temp = wx["main"]["temp"]
-            wind = wx["wind"]["speed"]
-            desc = wx["weather"][0]["description"].title()
-            time = wx.get("dt")
-        
-            from datetime import datetime
-            time = datetime.fromtimestamp(time).strftime('%Y-%m-%d %H:%M UTC') if time else "Unknown time"
-            
-            print("\n----------------------")
-            print(f"Location: {place['name']}, {place['country']} ({place['lat']:.2f}, {place['lon']:.2f})")
-            print(f"Time: {time}")
-            print(f"Now: {temp}°C, wind {wind} km/h, {desc}")
-            print("------------------------\n")
-            
-        except requests.HTTPError as e:
-            print(f"HTTP error: {e}")
-        except requests.RequestException as e:
-            print(f"Network error: {e}")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-    
-#------Run program------        
+
+#------Run Program------
 if __name__ == "__main__":
-    main()  
+    main()
