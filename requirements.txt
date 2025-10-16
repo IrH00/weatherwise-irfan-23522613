@@ -1,0 +1,8 @@
+requests
+pandas
+matplotlib
+rich
+halo
+pyinputplus
+python-dotenv
+ollama

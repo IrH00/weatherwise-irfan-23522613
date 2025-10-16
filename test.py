@@ -110,7 +110,7 @@ def plot_forecast(df, city_name):
     plt.legend()
     plt.tight_layout()
     plt.show()
-    pl.close()
+    plt.close()
     
 #-------Custom Menu-------
 def menu_input(options):
