@@ -1,36 +1,44 @@
 import os
-import requests
+from ollama import Client
 from dotenv import load_dotenv
 
 load_dotenv()
 
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
-OLLAMA_API_URL = "https://api.ollama.ai/v1/chat/completions"
 
-def talk_to_weather_friend(user_message):
-    """
-    Send user message to Ollama Cloud and return AI response.
-    """
-    if not OLLAMA_API_KEY:
-        return "❌ Missing OLLAMA_API_KEY in .env file."
+# ✅ Connect to Ollama Cloud
+client = Client(
+    host="https://ollama.com",
+    headers={'Authorization': f'Bearer {OLLAMA_API_KEY}'}
+)
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {OLLAMA_API_KEY}"
+# 🧠 Minimal conversation memory
+conversation_history = [
+    {
+        "role": "system",
+        "content": (
+            "You are Weather Friend — a short, funny, and friendly weather chatbot. "
+            "Keep replies under 20 words. Be playful but useful. "
+            "If asked about something you can’t check live, give a quick general answer like "
+            "'Not sure right now, but usually sunny there!'. "
+            "Never repeat yourself, never explain, just give one witty response."
+        )
     }
+]
 
-    payload = {
-        "model": "llama3.1",  # You can change this to another supported model
-        "messages": [
-            {"role": "system", "content": "You are Weather Friend, a friendly weather chatbot. Answer clearly and conversationally."},
-            {"role": "user", "content": user_message}
-        ]
-    }
 
+def talk_to_weather_friend(message: str):
+    """Chat with Weather Friend using Ollama Cloud (short, clear replies)."""
     try:
-        response = requests.post(OLLAMA_API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
+        conversation_history.append({"role": "user", "content": message})
+
+        # Request single response (no streaming)
+        response = client.chat("gpt-oss:120b", messages=conversation_history)
+
+        reply = response["message"]["content"].strip()
+        conversation_history.append({"role": "assistant", "content": reply})
+
+        return reply  # ✅ only return, don’t print
+
     except Exception as e:
         return f"⚠️ Error talking to Weather Friend: {e}"

@@ -1,5 +1,5 @@
-import os
 import requests
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -7,22 +7,34 @@ load_dotenv()
 API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 def get_weather_data(location, forecast_days=5):
-    """Retrieve weather and forecast data for a specified location."""
-    geocode_url = "http://api.openweathermap.org/geo/1.0/direct"
-    geo_params = {"q": location, "limit": 1, "appid": API_KEY}
-    
-    geo_res = requests.get(geocode_url, params=geo_params, timeout=10)
-    geo_res.raise_for_status()
-    geo_data = geo_res.json()
-    if not geo_data:
-        raise ValueError(f"City '{location}' not found.")
-    
-    lat, lon = geo_data[0]["lat"], geo_data[0]["lon"]
+    """Retrieve current weather and forecast for a given city."""
+    base_url = "https://api.openweathermap.org/data/2.5/"
+    geo_url = f"{base_url}weather?q={location}&appid={API_KEY}&units=metric"
 
-    forecast_url = "https://api.openweathermap.org/data/2.5/forecast"
-    params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
-    res = requests.get(forecast_url, params=params, timeout=10)
-    res.raise_for_status()
+    try:
+        geo_response = requests.get(geo_url, timeout=10)
+        geo_response.raise_for_status()
+        data = geo_response.json()
 
-    data = res.json()
-    return data
+        lat, lon = data["coord"]["lat"], data["coord"]["lon"]
+
+        # Current weather
+        current = {
+            "temp": data["main"]["temp"],
+            "wind_speed": data["wind"]["speed"],
+            "description": data["weather"][0]["description"]
+        }
+
+        # Forecast
+        forecast_url = f"{base_url}forecast?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
+        forecast_response = requests.get(forecast_url, timeout=10)
+        forecast_response.raise_for_status()
+        forecast_data = forecast_response.json()
+
+        return {
+            "current": current,
+            "forecast": forecast_data
+        }
+
+    except Exception as e:
+        raise RuntimeError(f"Weather data error: {e}")
