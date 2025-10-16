@@ -1,59 +1,61 @@
-import requests
-from datetime import datetime
 import os
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
-API_KEY = os.getenv("OPENWEATHER_API_KEY", "e6a2841079bca486e90d927f5357fc35")
+BASE_URL_FORECAST = "https://api.openweathermap.org/data/2.5/forecast"
 
-def get_weather_data(location, forecast_days=5):
+
+def get_weather_data(city: str, days: int = 1):
     """
-    Retrieve current weather and forecast data for a specified location.
-    Returns both 'current' and 'forecast' dictionaries.
+    Fetch 5-day / 3-hour forecast from OpenWeather.
+    Returns structured data with wind, humidity, and temp.
     """
     try:
-        # Step 1: Geocode the city name
-        geo_url = "http://api.openweathermap.org/geo/1.0/direct"
-        geo_params = {"q": location, "limit": 1, "appid": API_KEY}
-        geo_response = requests.get(geo_url, params=geo_params, timeout=10)
-        geo_response.raise_for_status()
-        geo_data = geo_response.json()
-        if not geo_data:
-            raise ValueError(f"City '{location}' not found.")
-        lat = geo_data[0]["lat"]
-        lon = geo_data[0]["lon"]
+        params = {"q": city, "appid": API_KEY, "units": "metric"}
+        r = requests.get(BASE_URL_FORECAST, params=params, timeout=10)
 
-        # Step 2: Current weather
-        current_url = "https://api.openweathermap.org/data/2.5/weather"
-        current_params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
-        current_response = requests.get(current_url, params=current_params, timeout=10)
-        current_response.raise_for_status()
-        current = current_response.json()
+        if r.status_code != 200:
+            return {"error": f"Couldn't find '{city}'. Please check spelling."}
 
-        current_data = {
-            "temp": current["main"]["temp"],
-            "feels_like": current["main"]["feels_like"],
-            "humidity": current["main"]["humidity"],
-            "wind_speed": current["wind"]["speed"],
-            "description": current["weather"][0]["description"],
-            "time": datetime.fromtimestamp(current["dt"]).strftime("%Y-%m-%d %H:%M"),
+        data = r.json()
+        forecast = []
+
+        for item in data.get("list", []):
+            main = item.get("main", {})
+            weather = (item.get("weather") or [{}])[0]
+            wind = item.get("wind", {})
+            forecast.append({
+                "time": item.get("dt_txt"),
+                "temp": main.get("temp"),
+                "humidity": main.get("humidity"),
+                "wind_speed": wind.get("speed", "—"),
+                "description": weather.get("description", "Unknown"),
+            })
+
+        # ✅ Limit to chosen number of days (8 slots ≈ 1 day)
+        limit = min(days * 8, len(forecast))
+        forecast = forecast[:limit]
+
+        # ✅ Extract a single "current" snapshot
+        current = {}
+        if forecast:
+            first = forecast[0]
+            current = {
+                "temp": first.get("temp"),
+                "humidity": first.get("humidity"),
+                "wind_speed": first.get("wind_speed"),
+                "description": first.get("description").title(),
+            }
+
+        city_name = (data.get("city") or {}).get("name", city)
+        return {
+            "city": city_name,
+            "current": current,
+            "forecast": forecast,
         }
-
-        # Step 3: Forecast
-        forecast_url = "https://api.openweathermap.org/data/2.5/forecast"
-        forecast_params = {
-            "lat": lat,
-            "lon": lon,
-            "cnt": int(forecast_days) * 8,  # 8 entries per day (3-hour steps)
-            "appid": API_KEY,
-            "units": "metric",
-        }
-        forecast_response = requests.get(forecast_url, params=forecast_params, timeout=10)
-        forecast_response.raise_for_status()
-        forecast_data = forecast_response.json()
-
-        return {"current": current_data, "list": forecast_data["list"]}
 
     except Exception as e:
-        raise RuntimeError(f"Weather data fetch error: {e}")
+        return {"error": f"⚠️ Weather data fetch error: {e}"}

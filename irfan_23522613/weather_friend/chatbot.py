@@ -1,44 +1,55 @@
 import os
 from ollama import Client
 from dotenv import load_dotenv
+from irfan_23522613.weather_friend.utils import parse_weather_question, generate_weather_response
+from irfan_23522613.weather_friend.weather_data import get_weather_data
 
 load_dotenv()
 
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 
-# ✅ Connect to Ollama Cloud
 client = Client(
     host="https://ollama.com",
     headers={'Authorization': f'Bearer {OLLAMA_API_KEY}'}
 )
 
-# 🧠 Minimal conversation memory
 conversation_history = [
     {
         "role": "system",
         "content": (
             "You are Weather Friend — a short, funny, and friendly weather chatbot. "
-            "Keep replies under 20 words. Be playful but useful. "
-            "If asked about something you can’t check live, give a quick general answer like "
-            "'Not sure right now, but usually sunny there!'. "
-            "Never repeat yourself, never explain, just give one witty response."
+            "You can use real weather data if available. Keep replies under 25 words. "
+            "If the live data is missing, make a witty and plausible weather remark."
         )
     }
 ]
 
 
 def talk_to_weather_friend(message: str):
-    """Chat with Weather Friend using Ollama Cloud (short, clear replies)."""
+    """Hybrid chatbot — uses weather API if possible, else witty fallback."""
     try:
+        # --- Step 1: parse message for city and day ---
+        parsed = parse_weather_question(message)
+        city = parsed.get("location")
+        days = parsed.get("days", 1)
+
+        # --- Step 2: Try getting real weather data ---
+        if city:
+            try:
+                weather_data = get_weather_data(city, days)
+                if weather_data:
+                    reply = generate_weather_response(parsed, weather_data)
+                    if reply:
+                        return reply
+            except Exception as e:
+                print(f"[Weather API error] {e}")
+
+        # --- Step 3: Otherwise, fallback to Ollama witty chat ---
         conversation_history.append({"role": "user", "content": message})
-
-        # Request single response (no streaming)
         response = client.chat("gpt-oss:120b", messages=conversation_history)
-
         reply = response["message"]["content"].strip()
         conversation_history.append({"role": "assistant", "content": reply})
-
-        return reply  # ✅ only return, don’t print
+        return reply
 
     except Exception as e:
         return f"⚠️ Error talking to Weather Friend: {e}"
