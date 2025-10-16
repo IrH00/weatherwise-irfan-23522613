@@ -1,48 +1,42 @@
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons
 import pandas as pd
 
 
-def create_weather_visualisation(weather_data):
-    """Show temperature and humidity graphs in one interactive window."""
+def create_temperature_visualisation(weather_data, output_type='figure'):
+    """Create a temperature trend line chart."""
     df = pd.DataFrame([
-        {
-            "time": item["dt_txt"],
-            "temp": item["main"]["temp"],
-            "humidity": item["main"]["humidity"]
-        }
+        {"time": item["dt_txt"], "temp": item["main"]["temp"]}
         for item in weather_data["list"]
     ])
     df["time"] = pd.to_datetime(df["time"])
 
     plt.style.use("seaborn-v0_8-darkgrid")
-    fig, ax = plt.subplots(figsize=(10, 5))
-    plt.subplots_adjust(left=0.15)
+    fig, ax = plt.subplots(figsize=(8, 3.8))
+    ax.plot(df["time"], df["temp"], color="#ff4d4d", linewidth=2)
+    ax.set_title("Temperature Trend (°C)", fontsize=12, pad=8)
+    ax.set_xlabel("Time", fontsize=10)
+    ax.set_ylabel("°C", fontsize=10)
+    ax.tick_params(axis="x", rotation=25)
+    fig.tight_layout()
+    return fig
 
-    # Initial plot: Temperature
-    line, = ax.plot(df["time"], df["temp"], color="red", label="Temperature (°C)", linewidth=2)
-    ax.set_title("Temperature Trend")
-    ax.set_xlabel("Time")
-    ax.set_ylabel("°C")
-    ax.legend()
 
-    # Add radio buttons for switching
-    ax_radio = plt.axes([0.02, 0.4, 0.1, 0.15])  # position: [left, bottom, width, height]
-    radio = RadioButtons(ax_radio, ('Temperature', 'Humidity'))
+def create_precipitation_visualisation(weather_data, output_type='figure'):
+    """Create a humidity trend bar chart."""
+    df = pd.DataFrame([
+        {"time": item["dt_txt"], "humidity": item["main"]["humidity"]}
+        for item in weather_data["list"]
+    ])
+    df["time"] = pd.to_datetime(df["time"])
 
-    def update(label):
-        ax.clear()
-        if label == "Temperature":
-            ax.plot(df["time"], df["temp"], color="red", label="Temperature (°C)", linewidth=2)
-            ax.set_ylabel("°C")
-        else:
-            ax.plot(df["time"], df["humidity"], color="blue", label="Humidity (%)", linewidth=2)
-            ax.set_ylabel("%")
-        ax.set_xlabel("Time")
-        ax.set_title(f"{label} Trend")
-        ax.legend()
-        fig.canvas.draw_idle()
-
-    radio.on_clicked(update)
-
-    plt.show()
+    plt.style.use("seaborn-v0_8-darkgrid")
+    fig, ax = plt.subplots(figsize=(8, 3.8))
+    ax.bar(df["time"], df["humidity"], color="#4da6ff", width=0.04)
+    ax.set_title("Humidity Trend (%)", fontsize=12, pad=8)
+    ax.set_xlabel("Time", fontsize=10)
+    ax.set_ylabel("Humidity (%)", fontsize=10)
+    ax.tick_params(axis="x", rotation=25)
+    fig.tight_layout()
+    return fig
