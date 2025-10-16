@@ -10,12 +10,8 @@ import time
 from datetime import datetime
 from halo import Halo
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")  # use headless backend for VSCode Web / Jupyter
 import matplotlib.pyplot as plt
-from IPython.display import display
 import pyinputplus as pyip
-
 
 #------API setup------
 console = Console()
@@ -27,7 +23,7 @@ def geocode(name: str):
     url = "http://api.openweathermap.org/geo/1.0/direct"
     params = {"q": name, "limit": 1, "appid": API_KEY}
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(url, params=params, timeout=5)
         r.raise_for_status()
         data = r.json()
         if not data:
@@ -52,7 +48,7 @@ def get_current_weather(lat: float, lon: float):
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
     try:
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get(url, params=params, timeout=5)
         r.raise_for_status()
         data = r.json()
         time_str = datetime.fromtimestamp(data["dt"]).strftime("%Y-%m-%d %H:%M")
@@ -72,7 +68,7 @@ def get_forecast(lat: float, lon: float):
     url = "https://api.openweathermap.org/data/2.5/forecast"
     params = {"lat": lat, "lon": lon, "appid": API_KEY, "units": "metric"}
     try:
-        r = requests.get(url, params=params, timeout=15)
+        r = requests.get(url, params=params, timeout=5)
         r.raise_for_status()
         data = r.json()
         forecast_list = data["list"]
@@ -113,8 +109,8 @@ def plot_forecast(df, city_name):
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend()
     plt.tight_layout()
-    display(plt.gcf())
-    plt.close()
+    plt.show()
+    pl.close()
     
 #-------Custom Menu-------
 def menu_input(options):
@@ -128,7 +124,7 @@ def menu_input(options):
 
 #-------Main Menu-------
 def main():
-    console.print(Panel.fit("🌦️ [bold cyan]Weather Friend[/bold cyan] 🌦️", box=box.DOUBLE))
+    console.print(Panel.fit("🌦️ [bold cyan] Weather Friend[/bold cyan] 🌦️", box=box.DOUBLE))
     console.print("[green]Welcome to your smart weather assistant![/green]\n")
 
     while True:
