@@ -6,3 +6,4 @@ halo
 pyinputplus
 python-dotenv
 ollama
+customtkinter
