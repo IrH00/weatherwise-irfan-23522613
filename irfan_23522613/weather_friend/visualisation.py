@@ -1,71 +1,48 @@
-import matplotlib
-matplotlib.use("TkAgg")  # must come first
 import matplotlib.pyplot as plt
+from matplotlib.widgets import RadioButtons
 import pandas as pd
-from IPython.display import display
 
 
-def plot_forecast(df, city):
-    """Display a Matplotlib temperature and humidity plot."""
-    df = df.copy()
-    df["time_str"] = df["time"].dt.strftime("%d/%m %H:%M")
+def create_weather_visualisation(weather_data):
+    """Show temperature and humidity graphs in one interactive window."""
+    df = pd.DataFrame([
+        {
+            "time": item["dt_txt"],
+            "temp": item["main"]["temp"],
+            "humidity": item["main"]["humidity"]
+        }
+        for item in weather_data["list"]
+    ])
+    df["time"] = pd.to_datetime(df["time"])
 
     plt.style.use("seaborn-v0_8-darkgrid")
-    plt.figure(figsize=(10, 5))
-    plt.plot(df["time_str"], df["temp"], color="red", label="Temperature (°C)")
-    plt.plot(df["time_str"], df["humidity"], color="blue", label="Humidity (%)")
-    plt.title(f"5-Day Forecast for {city}")
-    plt.xlabel("Date/Time")
-    plt.ylabel("Values")
-    plt.xticks(rotation=45, fontsize=8)
-    plt.legend()
-    plt.grid(True, linestyle="--", alpha=0.6)
-    plt.tight_layout()
+    fig, ax = plt.subplots(figsize=(10, 5))
+    plt.subplots_adjust(left=0.15)
+
+    # Initial plot: Temperature
+    line, = ax.plot(df["time"], df["temp"], color="red", label="Temperature (°C)", linewidth=2)
+    ax.set_title("Temperature Trend")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("°C")
+    ax.legend()
+
+    # Add radio buttons for switching
+    ax_radio = plt.axes([0.02, 0.4, 0.1, 0.15])  # position: [left, bottom, width, height]
+    radio = RadioButtons(ax_radio, ('Temperature', 'Humidity'))
+
+    def update(label):
+        ax.clear()
+        if label == "Temperature":
+            ax.plot(df["time"], df["temp"], color="red", label="Temperature (°C)", linewidth=2)
+            ax.set_ylabel("°C")
+        else:
+            ax.plot(df["time"], df["humidity"], color="blue", label="Humidity (%)", linewidth=2)
+            ax.set_ylabel("%")
+        ax.set_xlabel("Time")
+        ax.set_title(f"{label} Trend")
+        ax.legend()
+        fig.canvas.draw_idle()
+
+    radio.on_clicked(update)
+
     plt.show()
-import matplotlib.pyplot as plt
-import pandas as pd
-from IPython.display import display
-
-def create_temperature_visualisation(weather_data, output_type='display'):
-    """Create temperature visualisation from forecast data."""
-    df = pd.DataFrame([
-        {"time": item["dt_txt"], "temp": item["main"]["temp"]}
-        for item in weather_data["list"]
-    ])
-    df["time"] = pd.to_datetime(df["time"])
-
-    plt.style.use("seaborn-v0_8-darkgrid")
-    plt.figure(figsize=(10, 5))
-    plt.plot(df["time"], df["temp"], label="Temperature (°C)", color="red", linewidth=2)
-    plt.title("Temperature Trend")
-    plt.xlabel("Time")
-    plt.ylabel("°C")
-    plt.legend()
-    plt.tight_layout()
-    
-    if output_type == 'display':
-        plt.show()
-    else:
-        return plt.gcf()
-
-def create_precipitation_visualisation(weather_data, output_type='display'):
-    """Create humidity visualisation from forecast data."""
-    df = pd.DataFrame([
-        {"time": item["dt_txt"], "humidity": item["main"]["humidity"]}
-        for item in weather_data["list"]
-    ])
-    df["time"] = pd.to_datetime(df["time"])
-
-    plt.style.use("seaborn-v0_8-darkgrid")
-    plt.figure(figsize=(10, 5))
-    plt.bar(df["time"], df["humidity"], color="blue", label="Humidity (%)")
-    plt.title("Humidity Over Time")
-    plt.xlabel("Time")
-    plt.ylabel("%")
-    plt.legend()
-    plt.tight_layout()
-    
-    if output_type == 'display':
-        plt.show()
-    else:
-        return plt.gcf()

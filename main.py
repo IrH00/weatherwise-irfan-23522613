@@ -5,10 +5,7 @@ from rich.panel import Panel
 from rich import box
 
 from irfan_23522613.weather_friend.weather_data import get_weather_data
-from irfan_23522613.weather_friend.visualisation import (
-    create_temperature_visualisation,
-    create_precipitation_visualisation
-)
+from irfan_23522613.weather_friend.visualisation import create_weather_visualisation
 from irfan_23522613.weather_friend.chatbot import talk_to_weather_friend
 
 
@@ -20,7 +17,7 @@ console = Console()
 def main():
     console.print(Panel.fit("🌦️ [bold cyan]Weather Friend[/bold cyan] 🌦️", box=box.DOUBLE))
     console.print("[green]Welcome to your smart weather assistant![/green]\n")
-    
+
     while True:
         console.print(Panel.fit(
             "[bold white]1️⃣[/bold white]  Get current weather\n"
@@ -40,12 +37,13 @@ def main():
             console.print(f"[cyan]Fetching current weather for {city}...[/cyan]\n")
             try:
                 data = get_weather_data(city, forecast_days=1)
-                current = data["current"]
+                current = data["list"][0]["main"]
+                desc = data["list"][0]["weather"][0]["description"].title()
                 console.print(Panel.fit(
                     f"[bold white]{city.title()}[/bold white]\n"
                     f"🌡️ Temperature: [bold cyan]{current['temp']}°C[/bold cyan]\n"
-                    f"💨 Wind Speed: {current['wind_speed']} m/s\n"
-                    f"☁️ Condition: {current['description'].title()}",
+                    f"💧 Humidity: {current['humidity']}%\n"
+                    f"☁️ Condition: {desc}",
                     title="[green]Current Weather[/green]",
                     box=box.ROUNDED
                 ))
@@ -60,9 +58,8 @@ def main():
 
             try:
                 data = get_weather_data(city, forecast_days=days)
-                create_temperature_visualisation(data)
-                create_precipitation_visualisation(data)
-                console.print("[green]✅ Forecast visualisations generated![/green]\n")
+                create_weather_visualisation(data)
+                console.print("[green]✅ Forecast visualisation ready![/green]\n")
             except Exception as e:
                 console.print(f"[red]Error generating forecast: {e}[/red]\n")
 
@@ -74,15 +71,15 @@ def main():
                 if user_message.lower() in ["exit", "quit", "bye"]:
                     console.print("[green]👋 Goodbye from Weather Friend![/green]\n")
                     break
-                response = talk_to_weather_friend(user_message)
-                console.print(f"[bold magenta]Weather Friend:[/bold magenta] {response}\n")
+                reply = talk_to_weather_friend(user_message)
+                console.print(f"[bold magenta]Weather Friend:[/bold magenta] {reply}\n")
 
         # ===== Option 4: Help =====
         elif choice == "4":
             console.print(Panel.fit(
                 "[bold cyan]Usage Guide[/bold cyan]\n\n"
                 "1️⃣  Get live current weather for any city\n"
-                "2️⃣  View 1–5 day forecast with graphs\n"
+                "2️⃣  View 1–5 day forecast with interactive graphs\n"
                 "3️⃣  Chat with Weather Friend (AI bot)\n"
                 "4️⃣  Read help info\n"
                 "5️⃣  Exit program\n\n"
