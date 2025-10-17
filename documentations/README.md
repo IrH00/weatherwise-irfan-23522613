@@ -1,18 +1,21 @@
-# 🌦️ WeatherWise Template
+# 🌦️ WeatherWise project for ISYS5001 - Weather Friend 
 
-Welcome to the **WeatherWise Assignment Starter Template**! This repository helps you kickstart your project by combining Python, weather APIs, data visualisation, and AI-assisted development. 🤖📊
-
-![Build With AI](https://img.shields.io/badge/Built_with-AI-blueviolet?logo=openai)
-![Python](https://img.shields.io/badge/Made_with-Python-3776AB?logo=python)
-![Visualisation](https://img.shields.io/badge/Includes-Visualisations-orange?logo=plotly)
+Welcome to the **WeatherWise Assignment**!
+The name of my small app is **Weather Friend**
+This repository contains all the files that is based inside the app. The entire project is a combination of Python, weather APIs, data visualisation, and AI-assisted development. 🤖📊
 
 ---
 
-## 🚀 How to Use This Template
+## 🚀 How to use the app:
+# Option 1:
+1. Download the WeatherFriend.exe directly from WeatherFriend_App folder
+  Optional 1.1 - there is also a WeatherFriend_App.zip file if you want to get access to the API keys and the app spec files.
+2. Run it on your *Windows* device! (haven't had the chance to give cross-platform compatibility yet)
+3. Enjoy!
 
-1. Click **"Use this template"** on GitHub to create your own copy.
-2. Rename your repository to something like `weatherwise-jane-doe`.
-3. Clone it and start developing in `starter_notebook.ipynb`.
+# Option 2:
+1. Download the entire repository to your local machine.
+2
 
 ---
 
