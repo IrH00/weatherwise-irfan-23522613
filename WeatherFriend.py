@@ -1,6 +1,4 @@
-# main_dashboard.py — Weather Friend Dashboard v4
-# Apple-style dashboard with embedded visualisation + chatbot
-# by Irfan & GPT-5
+# main_dashboard.py — Weather Friend Dashboard
 
 import os, sys, threading, time
 from datetime import datetime
@@ -10,12 +8,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib import pyplot as plt
 from rich.console import Console
 
-# ===== PATH FIX =====
+# PATH FIX
 ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-# ---- App modules (do not change names) ----
+# App modules
 from irfan_23522613.weather_friend.weather_data import get_weather_data
 from irfan_23522613.weather_friend.visualisation import (
     create_temperature_visualisation,
@@ -25,7 +23,7 @@ from irfan_23522613.weather_friend.chatbot import talk_to_weather_friend
 
 console = Console()
 
-# ===== GLOBAL SETTINGS =====
+# GLOBAL SETTINGS
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
@@ -46,7 +44,7 @@ plt.rcParams.update({
 })
 
 
-# ===== HELPERS =====
+# HELPERS
 def run_thread(fn, *args):
     t = threading.Thread(target=fn, args=args, daemon=True)
     t.start()
@@ -71,16 +69,14 @@ def normalise_forecast_dict(raw):
     if not isinstance(raw, dict):
         return {"error": "Unexpected data format."}
 
-    # If it's already in the desired shape:
     if "forecast" in raw and isinstance(raw["forecast"], list):
         return raw
 
-    # If this looks like a direct OpenWeather response:
+
     if "list" in raw and isinstance(raw["list"], list):
         out = {"current": raw.get("current", {}), "city": raw.get("city", {}).get("name") or raw.get("name") or ""}
         fc = []
         for item in raw["list"]:
-            # 3h entries: main.temp, main.humidity, dt_txt
             try:
                 fc.append({
                     "time": item.get("dt_txt"),
@@ -92,8 +88,6 @@ def normalise_forecast_dict(raw):
         out["forecast"] = fc
         return out
 
-    # If the shape is like {"current": {...}, "hourly": [...]} or something else
-    # Try to discover time/temperature/humidity keys
     # Fallback to what the app needs:
     if "current" in raw and "hourly" in raw and isinstance(raw["hourly"], list):
         fc = []
@@ -109,7 +103,7 @@ def normalise_forecast_dict(raw):
     return raw
 
 
-# ===== CURRENT WEATHER PAGE =====
+# CURRENT WEATHER PAGE 
 class CurrentWeatherPage(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, corner_radius=12)
@@ -184,7 +178,7 @@ class CurrentWeatherPage(ctk.CTkFrame):
         run_thread(work)
 
 
-# ===== FORECAST PAGE =====
+# FORECAST PAGE
 class ForecastPage(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, corner_radius=12)
@@ -235,7 +229,7 @@ class ForecastPage(ctk.CTkFrame):
             w.destroy()
 
         try:
-            # Our visualisation module expects the normalised dict
+            # the visualisation module expects the normalised dict
             data = normalise_forecast_dict(self.cached_data)
             if "forecast" not in data or not data["forecast"]:
                 self._show_msg("No forecast data to display. Try fetching again.")
@@ -278,7 +272,7 @@ class ForecastPage(ctk.CTkFrame):
         run_thread(work)
 
 
-# ===== IMPROVED CHATBOT PAGE =====
+# IMPROVED CHATBOT PAGE
 class ChatPage(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
@@ -306,9 +300,9 @@ class ChatPage(ctk.CTkFrame):
         # Intro message
         self.add_message("Weather Friend", "🌤 Hey there! Ask me about any city’s weather today or in the next 5 days!")
 
-    # ---------- UI Message Bubbles ----------
+    # UI Message Bubbles
     def add_message(self, sender, text):
-        # Colors and alignment like iMessage
+        # Colors and alignment
         if sender == "You":
             bubble_color = "#007AFF"   # iMessage blue
             text_color = "white"
@@ -339,7 +333,7 @@ class ChatPage(ctk.CTkFrame):
 
         bubble.pack(anchor=anchor, padx=padx, pady=6)
 
-        # Optional: "Delivered" indicator for user messages
+        # "Delivered" indicator for user messages
         if sender == "You":
             status = ctk.CTkLabel(
                 self.chat_frame,
@@ -356,7 +350,7 @@ class ChatPage(ctk.CTkFrame):
             pass
 
 
-    # ---------- Animation ----------
+    # Animation
     def start_typing_animation(self):
         self._animating = True
         self._thinking_label = ctk.CTkLabel(self.chat_frame, text="Weather Friend is thinking", font=("Segoe UI", 14))
@@ -382,7 +376,7 @@ class ChatPage(ctk.CTkFrame):
             self._thinking_label.destroy()
             self._thinking_label = None
 
-    # ---------- Logic ----------
+    # Logic
     def send(self):
         user_msg = self.entry.get().strip()
         if not user_msg:
@@ -394,7 +388,7 @@ class ChatPage(ctk.CTkFrame):
 
     def respond(self, user_msg):
         try:
-            # Try to parse a weather intent and answer with live data first
+            
             try:
                 from irfan_23522613.weather_friend.utils import parse_weather_question, generate_weather_response
                 parsed = parse_weather_question(user_msg)
@@ -422,7 +416,7 @@ class ChatPage(ctk.CTkFrame):
         self.add_message("Weather Friend", reply)
 
 
-# ===== MAIN APP =====
+# MAIN APP
 class WeatherApp(ctk.CTk):
     def __init__(self):
         super().__init__()
